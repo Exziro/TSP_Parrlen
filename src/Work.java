@@ -15,10 +15,13 @@ import java.util.stream.Collectors;
 
 public class Work {
     private int[][] pos=new int[cityNum][2];
+    private final static int N = 5; //商旅个数
     private final static int M = 100;// 种群规模
-    private final static int cityNum = 105; // 城市数量，染色体长度
+    private final static int min_b = 20;
+    private final static int cityNum = 76; // 城市数量，染色体长度 多商旅自己加
     private int T; // 运行代数
     private float[][] distance; // 距离矩阵
+    private int[][]distance_break;//断点矩阵
     private float bestDistance; // 最佳长度
     private int[] bestPath; // 最佳路径
     private int[][] oldPopulation; // 父代种群
@@ -75,12 +78,16 @@ public class Work {
         readData(this.name);
         for (int i = 0; i < cityNum - 1; i++) { // 计算距离矩阵, 距离计算方法为伪欧氏距离
             distance[i][i] = 0; // 对角线为0
-            for (int j = i + 1; j < cityNum; j++) {
+            for (int j = i + 1; j < cityNum - 1; j++) {
                 double rij = Math.sqrt(((pos[i][0] - pos[j][0]) * (pos[i][0] - pos[j][0]) + (pos[i][1] - pos[j][1]) * (pos[i][1] - pos[j][1])));
                 distance[i][j] = (int) Math.round(rij); // 四舍五入
                 distance[j][i] = distance[i][j];
             }
+
         }
+        //System.out.println("ok");
+
+
         distance[cityNum - 1][cityNum - 1] = 0;
         bestDistance = Integer.MIN_VALUE;
         bestPath = new int[cityNum + 1];
@@ -90,8 +97,115 @@ public class Work {
         Pi = new float[M];
         random = new Random(System.currentTimeMillis());
     }
+    void printgroup(){
+        for(int i = 0 ; i < cityNum -1 ; i++){
+            for(int j = 0; j < cityNum - 1; j++){
+                System.out.print(distance[i][j] + " ");
+            }
+            System.out.println();
+        }
+    }
+    public void break_ini(){
+        //int minb = min_b;
+        distance_break = new int[M][N- 1];//多减去一个原因是5个商旅只需要4个断点
+        for(int i =0 ; i < M;i++){
+            while (true){
+                int temp = random.nextInt(min_b - 1);
+                distance_break[i][0] = temp;
+                for(int j = 1; j <= N-1-1;j++){
+                    distance_break[i][j] = random.nextInt(min_b -1) + temp;
+                    temp = distance_break[i][j];
+                }
+                if(cityNum - distance_break[i][N-1-1] <= min_b ){
+                    break;
+                }
+            }
+
+        }
+//        for(int i = 0; i < M-1;i++){
+//            for(int j = 0; j< N-1;j++){
+//                System.out.print(distance_break[i][j]);
+//                System.out.print(" ");
+//
+//            }
+//            System.out.println();
+//        }
+
+
+    }
+
 
     void initGroup() {
+        break_ini();
+        int i , j , k;
+        ArrayList<Integer> list = new ArrayList<>();
+        float dis=0;
+        int index=-1;
+        for(k = 0; k < M; k++ ){
+            int temp = 1;
+            for(int a = 0; a < cityNum;a++){
+                list.add(a);
+            }
+            list.remove((Object)oldPopulation[k][0]);
+            for(i = 0; i < N ; i++){//断点分段 基因断点虽然是4个 但是实际是五段
+                if(i<N-1) {//要确保每次的都是从0开始
+                    for (j = temp; j < distance_break[k][i]; j++) {//读取断点后的分段长度
+                        dis = Integer.MAX_VALUE;
+                        if(j == temp){
+                            for (int m = 0; m < list.size(); m++) {
+                                if (distance[0][list.get(m)] < dis) {
+                                    dis = distance[0][list.get(m)];
+                                    index = list.get(m);
+                                }
+                            }
+                        }
+                        else{
+                            for (int m = 0; m < list.size(); m++) {
+                                if (distance[oldPopulation[k][j - 1]][list.get(m)] < dis) {
+                                    dis = distance[oldPopulation[k][j - 1]][list.get(m)];
+                                    index = list.get(m);
+                                }
+                            }
+                        }
+                        oldPopulation[k][j] = index;
+                        list.remove((Object) index);
+                    }
+                    temp = distance_break[k][i];//从下一个起始点开始
+                }
+                else{
+                    for (j = temp; j < (cityNum - temp)+temp; j++) {//读取最后一段分段长度
+                        dis = Integer.MAX_VALUE;
+                        if(j == temp){
+                            for (int m = 0; m < list.size(); m++) {
+                                if (distance[0][list.get(m)] < dis) {
+                                    dis = distance[0][list.get(m)];
+                                    index = list.get(m);
+                                }
+                            }
+                        }
+                        else{
+                            for (int m = 0; m < list.size(); m++) {
+                                if (distance[oldPopulation[k][j - 1]][list.get(m)] < dis) {
+                                    dis = distance[oldPopulation[k][j - 1]][list.get(m)];
+                                    index = list.get(m);
+                                }
+                            }
+                        }
+                        oldPopulation[k][j] = index;
+                        list.remove((Object) index);
+                    }
+                }
+
+            }
+        }
+        //此处生成的初始内容存在部分重复 需要注意 可采取部分生成 一部分留作他用
+        for(int a = 0; a < M ;a++){
+            for(int b = 0; b < cityNum;b++){
+                System.out.print(oldPopulation[a][b]);
+                System.out.print(" ");
+            }
+            System.out.println();
+        }
         /*int i, j, k;
         ArrayList<Integer> list = new ArrayList<>();
         float dis=0;
@@ -137,30 +251,35 @@ public class Work {
             }
 
         }*/
-        int i, j, k;
-        for (k = 0; k < M; k++) {   // 种群数
-            oldPopulation[k][0] = random.nextInt(cityNum);
-            for (i = 1; i < cityNum; ) {    // 染色体长度
-                oldPopulation[k][i] = random.nextInt(cityNum);
-                for (j = 0; j < i; j++) {
-                    if (oldPopulation[k][i] == oldPopulation[k][j]) {
-                        break;
-                    }
-                }
-                if (j == i) {
-                    i++;
-                }
-            }
-        }
+//        int i, j, k;
+//        for (k = 0; k < M; k++) {   // 种群数
+//            oldPopulation[k][0] = random.nextInt(cityNum);
+//            for (i = 1; i < cityNum; ) {    // 染色体长度
+//                oldPopulation[k][i] = random.nextInt(cityNum);
+//                for (j = 0; j < i; j++) {
+//                    if (oldPopulation[k][i] == oldPopulation[k][j]) {
+//                        break;
+//                    }
+//                }
+//                if (j == i) {
+//                    i++;
+//                }
+//            }
+//        }
     }
 
-    public float evaluate(int[] chromosome) {
+    public float evaluate(int[] chromosome,int[] break_point) {//设计计算长度方式
         float len = 0;
-        for (int i = 1; i < cityNum; i++) {
+        for (int i = 1; i < cityNum; i++) {//无断点长度
 
             len += distance[chromosome[i - 1]][chromosome[i]];
         }
         len += distance[chromosome[cityNum - 1]][chromosome[0]]; // 回到起点
+
+        for(int i = 0; i < N - 1 ; i++){
+            len += distance[chromosome[break_point[i]]][0];
+            len += distance[0][chromosome[break_point[i]+1]];
+        }//加上断点部分
         return 1/len;
     }
 
@@ -238,12 +357,12 @@ public class Work {
                 variation(k+1);
             }
             //余下四6行注释
-            //SiOrSwap(newPopulation[k],k,0 );
-            //SiOrSwap(newPopulation[k],k,1 );
-            //Opt(newPopulation[k],k);
-            //SiOrSwap(newPopulation[k+1],k+1,1);
-            //SiOrSwap(newPopulation[k+1],k+1,0 );
-            //Opt(newPopulation[k+1],k+1);
+            SiOrSwap(newPopulation[k],k,0 );
+            SiOrSwap(newPopulation[k],k,1 );
+            Opt(newPopulation[k],k);
+            SiOrSwap(newPopulation[k+1],k+1,1);
+            SiOrSwap(newPopulation[k+1],k+1,0 );
+            Opt(newPopulation[k+1],k+1);
         }
         search();
         //如果是偶数，会剩下最后一个没有成对，对其经行变异操作
@@ -264,9 +383,9 @@ public class Work {
                 }
                 if(old+1<M)
                 {
-                    //SiOrSwap(newPopulation[old+1],old+1,0 );
-                    //SiOrSwap(newPopulation[old+1],old+1,1 );
-                    //Opt(newPopulation[old+1],old+1);
+                    SiOrSwap(newPopulation[old+1],old+1,0 );
+                    SiOrSwap(newPopulation[old+1],old+1,1 );
+                    Opt(newPopulation[old+1],old+1);
                     Opt(newPopulation[old+1],old+1);
                     while (!write.compareAndSet(cold,cold+1)){
                         cold=write.get();
@@ -317,7 +436,7 @@ public class Work {
                         copy[i+k]=copy[j-k];
                         copy[j-k]=tmp;
                     }
-                    float f=evaluate(copy);
+                    float f=evaluate(copy,distance_break[index]);// 未判定部分，在没确定index是什么之前无法确定
                     if(f>fit)
                     {
                         fit=f;
@@ -372,6 +491,11 @@ public class Work {
                     for(int m=1;m<cityNum;m++)
                         f+=distance[copy.get(m-1)][copy.get(m)];
                     f+=distance[copy.get(cityNum-1)][0];
+                    //调整部分
+                    for(int m = 0; m < N -1 ; m++){
+                        f += distance[chromosome[distance_break[index][m]]][0];
+                        f += distance[0][chromosome[distance_break[index][m]+1]];
+                    }
                     f=1/f;
 
                     //如果适应度大于原来的就替换
@@ -498,7 +622,7 @@ public class Work {
         initGroup();
         // 计算初始化种群适应度，Fitness[max]
         for (k = 0; k < M; k++) {
-            fitness[k] = evaluate(oldPopulation[k]);
+            fitness[k] = evaluate(oldPopulation[k],distance_break[k]);
         }
         // 计算初始化种群中各个个体的累积概率，Pi[max]
         countRate();
@@ -515,19 +639,19 @@ public class Work {
         for (t = 0; t < T; t++) {
             evolution();
             // 将新种群newGroup复制到旧种群oldGroup中，准备下一代进化
-            search();
+            //search();
             for (k = 0; k < M; k++) {
                 //以下3行注释
-                //SiOrSwap(newPopulation[k],k,0 );
-                //SiOrSwap(newPopulation[k],k,1);
-                //Opt(newPopulation[k],k);
+                SiOrSwap(newPopulation[k],k,0 );
+                SiOrSwap(newPopulation[k],k,1);
+                Opt(newPopulation[k],k);
                 for (i = 0; i < cityNum; i++) {
                     oldPopulation[k][i] = newPopulation[k][i];
                 }
             }
             // 计算种群适应度
             for (k = 0; k < M; k++) {
-                fitness[k] = evaluate(oldPopulation[k]);
+                fitness[k] = evaluate(oldPopulation[k],distance_break[k]);
             }
             countRate();
         }
@@ -555,8 +679,10 @@ public class Work {
     public static void main(String[] args) throws IOException {
         long start = System.currentTimeMillis();
 
-        Work ga = new Work(200, 0.5f, 0.085f,
-                "/Users/yixiqi/Downloads/original_data/original_data/lin105.tsp");
+        Work ga = new Work(100, 1, 0.085f,
+                "/Users/yixiqi/Downloads/original_data/original_data/pr76.tsp");
+        //ga.printgroup();
+
 //        float sum=0;
 //        float[] dis=new float[cityNum*cityNum];
 //        for(int i=0;i<cityNum;i++)
@@ -574,7 +700,8 @@ public class Work {
 //        }
 //        System.out.println(sum);
         ga.run();
-        System.out.println("\n运行:"+(double)(System.currentTimeMillis()-start)/(1000)+"s");
+//        System.out.println("\n运行:"+(double)(System.currentTimeMillis()-start)/(1000)+"s");
+
     }
 
 }
